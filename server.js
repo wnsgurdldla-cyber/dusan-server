@@ -3,7 +3,6 @@ const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, { cors: { origin: "*" } });
 
-// 기본 미션 목록 (목표 두산 : 미션 내용)
 let dusanData = { 
   dusan: 0, 
   totalBalloons: 0, 
@@ -18,8 +17,13 @@ let dusanData = {
 
 app.use(express.static(__dirname));
 
+function getNextMission(currentDusan) {
+  const sorted = [...dusanData.missions].sort((a, b) => a.target - b.target);
+  return sorted.find(m => m.target > currentDusan) || sorted[sorted.length - 1] || null;
+}
+
 io.on('connection', (socket) => {
-  socket.emit('updateData', dusanData);
+  socket.emit('updateData', { ...dusanData, nextMission: getNextMission(dusanData.dusan) });
 
   socket.on('addBalloons', (value) => {
     if (typeof value === 'number' && value > 0) {
@@ -30,9 +34,9 @@ io.on('connection', (socket) => {
       const newDusan = Math.floor((-1 + Math.sqrt(1 + 8 * dusanData.totalBalloons)) / 2);
       dusanData.dusan = newDusan;
 
-      io.emit('updateData', dusanData);
+      const nextMission = getNextMission(newDusan);
+      io.emit('updateData', { ...dusanData, nextMission });
 
-      // 설정된 모든 미션 중 이번에 돌파한 목표가 있는지 확인
       dusanData.missions.forEach(m => {
         if (prevDusan < m.target && newDusan >= m.target) {
           io.emit('triggerGoal', { target: m.target, title: m.text });
@@ -42,16 +46,15 @@ io.on('connection', (socket) => {
   });
 
   socket.on('updateMissions', (newMissions) => {
-    // 숫자가 높은 순서대로 오름차순 정렬
     dusanData.missions = newMissions.sort((a, b) => a.target - b.target);
-    io.emit('updateData', dusanData);
+    io.emit('updateData', { ...dusanData, nextMission: getNextMission(dusanData.dusan) });
   });
 
   socket.on('resetData', () => {
     dusanData.totalBalloons = 0;
     dusanData.dusan = 0;
     dusanData.history = [];
-    io.emit('updateData', dusanData);
+    io.emit('updateData', { ...dusanData, nextMission: getNextMission(0) });
   });
 });
 
