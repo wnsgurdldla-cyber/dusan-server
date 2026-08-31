@@ -6,25 +6,117 @@
   <script src="/socket.io/socket.io.js"></script>
   <style>
     body { margin: 0; padding: 0; background: transparent; overflow: hidden; font-family: 'Pretendard', sans-serif; }
-    .card { width: 300px; background: rgba(18, 24, 36, 0.9); border: 2px solid #2b3445; border-radius: 12px; padding: 15px; text-align: center; color: white; }
+    
+    .card {
+      width: 340px;
+      background: rgba(18, 24, 36, 0.9);
+      border: 2px solid #2b3445;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      color: white;
+      position: relative;
+      transition: all 0.5s ease;
+    }
+
     .title { font-size: 13px; color: #94a3b8; }
-    .dusan { font-size: 36px; font-weight: bold; color: #ffe600; text-shadow: 0 0 10px rgba(255,230,0,0.4); margin: 5px 0; }
-    .total { font-size: 13px; color: #cbd5e1; }
+    .dusan { font-size: 38px; font-weight: 800; color: #ffe600; text-shadow: 0 0 10px rgba(255,230,0,0.4); margin: 4px 0; }
+    .total { font-size: 13px; color: #cbd5e1; margin-bottom: 10px; }
+
+    .mission-box {
+      background: rgba(0,0,0,0.4);
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 12px;
+      text-align: left;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .mission-item { display: flex; justify-content: space-between; margin: 3px 0; }
+    .m-tag { font-weight: bold; color: #ffb703; }
+
+    /* 돌파 축하 애니메이션 */
+    .celebrate {
+      animation: pulse 1s infinite alternate;
+      border-color: #ffe600 !important;
+      box-shadow: 0 0 30px rgba(255, 230, 0, 0.8) !important;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.03); }
+    }
+
+    .banner {
+      display: none;
+      position: absolute;
+      top: -40px;
+      left: 0;
+      width: 100%;
+      background: #ffe600;
+      color: #000;
+      font-weight: 800;
+      padding: 6px 0;
+      border-radius: 6px;
+      font-size: 15px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
   </style>
 </head>
 <body>
-<div class="card">
+
+<div class="card" id="mainCard">
+  <div class="banner" id="goalBanner">🎉 300두산 돌파 성공! 🎉</div>
   <div class="title">[ 현재 달성 두산 ]</div>
   <div class="dusan" id="dusanDisplay">0 두산</div>
   <div class="total">총 누적 별풍선 : <span id="totalDisplay">0</span> 개</div>
+
+  <div class="mission-box">
+    <div class="mission-item"><span class="m-tag">[300두산]</span> <span id="m300Text">-</span></div>
+    <div class="mission-item"><span class="m-tag">[400두산]</span> <span id="m400Text">-</span></div>
+  </div>
 </div>
 
 <script>
   const socket = io();
 
+  // 효과음 생성 (Web Audio API 사용으로 외부 파일 없이 재생)
+  function playFanfare() {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [261.63, 329.63, 392.00, 523.25];
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.1, ctx.currentTime + idx * 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.12 + 0.4);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + idx * 0.12);
+      osc.stop(ctx.currentTime + idx * 0.12 + 0.4);
+    });
+  }
+
   socket.on('updateData', (data) => {
     document.getElementById('dusanDisplay').innerText = `${data.dusan} 두산`;
     document.getElementById('totalDisplay').innerText = Number(data.totalBalloons).toLocaleString();
+    document.getElementById('m300Text').innerText = data.m300 || "미션 미정";
+    document.getElementById('m400Text').innerText = data.m400 || "미션 미정";
+  });
+
+  // 돌파 시 이펙트 발생
+  socket.on('triggerGoal', (event) => {
+    const card = document.getElementById('mainCard');
+    const banner = document.getElementById('goalBanner');
+
+    banner.innerText = `🎉 ${event.target}두산 달성: ${event.title} 🎉`;
+    banner.style.display = 'block';
+    card.classList.add('celebrate');
+    playFanfare();
+
+    setTimeout(() => {
+      card.classList.remove('celebrate');
+      banner.style.display = 'none';
+    }, 6000); // 6초 후 이펙트 자동 종료
   });
 </script>
 </body>
