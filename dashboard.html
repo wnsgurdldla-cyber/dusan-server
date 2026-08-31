@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>두산 카운트 매니저 대시보드</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body { background-color: #121824; color: white; font-family: 'Pretendard', sans-serif; display: flex; justify-content: center; padding: 20px; }
+    .card { background: #1e2430; padding: 24px; border-radius: 12px; width: 100%; max-width: 400px; text-align: center; }
+    .dusan-box { font-size: 36px; font-weight: bold; color: #ffe600; margin: 15px 0; }
+    input { width: 70%; padding: 10px; border-radius: 6px; border: 1px solid #2b3445; background: #0b0f19; color: #fff; font-size: 16px; }
+    button { padding: 10px 15px; background: #ffe600; color: #000; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; }
+    .reset-btn { width: 100%; background: #ef4444; color: white; margin-top: 15px; }
+    .history { max-height: 150px; overflow-y: auto; text-align: left; margin-top: 15px; border-top: 1px solid #2b3445; padding-top: 10px; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h2>두산 카운트 대시보드</h2>
+  <div class="dusan-box" id="dusanDisplay">0 두산</div>
+  <div>총 누적 별풍선 : <span id="totalDisplay">0</span> 개</div>
+  <br>
+  <input type="number" id="balloonInput" placeholder="별풍선 개수" onkeydown="if(event.key==='Enter') sendData()">
+  <button onclick="sendData()">입력</button>
+  <div class="history" id="historyList"></div>
+  <button class="reset-btn" onclick="resetData()">전체 리셋</button>
+</div>
+
+<script>
+  const socket = io();
+
+  socket.on('updateData', (data) => {
+    document.getElementById('dusanDisplay').innerText = `${data.dusan} 두산`;
+    document.getElementById('totalDisplay').innerText = data.totalBalloons.toLocaleString();
+    
+    const historyList = document.getElementById('historyList');
+    historyList.innerHTML = '';
+    data.history.slice().reverse().forEach((item, index) => {
+      historyList.innerHTML += `<div>+ ${item.toLocaleString()} 개 (${data.history.length - index}회차)</div>`;
+    });
+  });
+
+  function sendData() {
+    const input = document.getElementById('balloonInput');
+    const val = parseInt(input.value);
+    if (val > 0) {
+      socket.emit('addBalloons', val);
+      input.value = '';
+    }
+  }
+
+  function resetData() {
+    if (confirm('모든 기록을 리셋하시겠습니까?')) {
+      socket.emit('resetData');
+    }
+  }
+</script>
+</body>
+</html>
