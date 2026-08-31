@@ -6,13 +6,19 @@
   <script src="/socket.io/socket.io.js"></script>
   <style>
     body { background-color: #121824; color: white; font-family: 'Pretendard', sans-serif; display: flex; justify-content: center; padding: 20px; }
-    .card { background: #1e2430; padding: 24px; border-radius: 12px; width: 100%; max-width: 420px; text-align: center; }
+    .card { background: #1e2430; padding: 24px; border-radius: 12px; width: 100%; max-width: 450px; text-align: center; }
     .dusan-box { font-size: 36px; font-weight: bold; color: #ffe600; margin: 15px 0; }
-    .section { background: #0b0f19; padding: 12px; border-radius: 8px; margin-bottom: 12px; text-align: left; }
-    .section label { font-size: 12px; color: #94a3b8; display: block; margin-bottom: 4px; }
-    input { width: 93%; padding: 8px; border-radius: 6px; border: 1px solid #2b3445; background: #121824; color: #fff; font-size: 14px; }
+    .section { background: #0b0f19; padding: 14px; border-radius: 8px; margin-bottom: 12px; text-align: left; }
+    .section label { font-size: 13px; color: #94a3b8; display: block; margin-bottom: 6px; font-weight: bold; }
+    input { padding: 8px; border-radius: 6px; border: 1px solid #2b3445; background: #121824; color: #fff; font-size: 14px; }
     .btn-group { display: flex; gap: 6px; margin-top: 6px; }
-    button { flex: 1; padding: 10px; background: #ffe600; color: #000; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; }
+    button { padding: 10px; background: #ffe600; color: #000; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; }
+    .mission-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+    .mission-row input[type="number"] { width: 70px; }
+    .mission-row input[type="text"] { flex: 1; }
+    .btn-del { background: #ef4444; color: white; padding: 8px 12px; font-size: 12px; }
+    .btn-add { background: #10b981; color: white; width: 100%; margin-top: 4px; }
+    .btn-save { background: #3b82f6; color: white; width: 100%; margin-top: 8px; }
     .reset-btn { width: 100%; background: #ef4444; color: white; margin-top: 15px; }
     .history { max-height: 120px; overflow-y: auto; text-align: left; margin-top: 15px; border-top: 1px solid #2b3445; padding-top: 10px; font-size: 13px; }
   </style>
@@ -26,16 +32,16 @@
   <div class="section">
     <label>별풍선 추가</label>
     <div class="btn-group">
-      <input type="number" id="balloonInput" placeholder="별풍선 개수" onkeydown="if(event.key==='Enter') sendBalloons()">
+      <input type="number" id="balloonInput" placeholder="별풍선 개수" style="flex:1;" onkeydown="if(event.key==='Enter') sendBalloons()">
       <button onclick="sendBalloons()">입력</button>
     </div>
   </div>
 
   <div class="section">
-    <label>미션 목표 설정 (방송 화면 실시간 표시)</label>
-    <input type="text" id="m300" placeholder="300두산 미션 (예: 시그니처 댄스)" style="margin-bottom:6px;">
-    <input type="text" id="m400" placeholder="400두산 미션 (예: 애교 송)">
-    <button onclick="sendMissions()" style="width:100%; margin-top:6px; background:#3b82f6; color:white;">미션 업데이트</button>
+    <label>미션 목표 설정 (1000두산 등 자유 추가)</label>
+    <div id="missionListContainer"></div>
+    <button class="btn-add" onclick="addMissionRow()">+ 미션 추가하기</button>
+    <button class="btn-save" onclick="saveMissions()">미션 목록 저장 & 적용</button>
   </div>
 
   <div class="history" id="historyList"></div>
@@ -48,8 +54,8 @@
   socket.on('updateData', (data) => {
     document.getElementById('dusanDisplay').innerText = `${data.dusan} 두산`;
     document.getElementById('totalDisplay').innerText = data.totalBalloons.toLocaleString();
-    if(data.m300 !== undefined) document.getElementById('m300').value = data.m300;
-    if(data.m400 !== undefined) document.getElementById('m400').value = data.m400;
+
+    renderMissions(data.missions || []);
 
     const historyList = document.getElementById('historyList');
     historyList.innerHTML = '';
@@ -57,6 +63,46 @@
       historyList.innerHTML += `<div>+ ${item.toLocaleString()} 개 (${data.history.length - index}회차)</div>`;
     });
   });
+
+  function renderMissions(missions) {
+    const container = document.getElementById('missionListContainer');
+    container.innerHTML = '';
+    missions.forEach(m => {
+      container.appendChild(createMissionRow(m.target, m.text));
+    });
+  }
+
+  function createMissionRow(target = '', text = '') {
+    const div = document.createElement('div');
+    div.className = 'mission-row';
+    div.innerHTML = `
+      <input type="number" class="m-target" placeholder="목표" value="${target}"> 두산
+      <input type="text" class="m-text" placeholder="미션 내용" value="${text}">
+      <button class="btn-del" onclick="this.parentElement.remove()">삭제</button>
+    `;
+    return div;
+  }
+
+  function addMissionRow() {
+    document.getElementById('missionListContainer').appendChild(createMissionRow());
+  }
+
+  function saveMissions() {
+    const targets = document.querySelectorAll('.m-target');
+    const texts = document.querySelectorAll('.m-text');
+    const newMissions = [];
+
+    targets.forEach((el, idx) => {
+      const targetVal = parseInt(el.value);
+      const textVal = texts[idx].value;
+      if (!isNaN(targetVal) && targetVal > 0) {
+        newMissions.push({ target: targetVal, text: textVal });
+      }
+    });
+
+    socket.emit('updateMissions', newMissions);
+    alert('미션 목록이 성공적으로 적용되었습니다.');
+  }
 
   function sendBalloons() {
     const input = document.getElementById('balloonInput');
@@ -67,20 +113,11 @@
     }
   }
 
-  function sendMissions() {
-    const m300 = document.getElementById('m300').value;
-    const m400 = document.getElementById('m400').value;
-    socket.emit('updateMissions', { m300, m400 });
-  }
-
   function resetData() {
-    if (confirm('모든 기록을 리셋하시겠습니까?')) {
+    if (confirm('모든 수치 기록을 리셋하시겠습니까?')) {
       socket.emit('resetData');
     }
   }
-</script>
-</body>
-</html>
 </script>
 </body>
 </html>
