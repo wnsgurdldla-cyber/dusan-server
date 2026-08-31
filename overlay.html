@@ -2,48 +2,104 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>두산 오버레이</title>
+  <title>두산 등산 오버레이</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
     body { margin: 0; padding: 0; background: transparent; overflow: hidden; font-family: 'Pretendard', sans-serif; }
     
     .card {
-      width: 340px;
-      background: rgba(18, 24, 36, 0.92);
-      border: 2px solid #2b3445;
-      border-radius: 12px;
-      padding: 16px;
+      width: 360px;
+      background: rgba(15, 23, 42, 0.93);
+      border: 2px solid #334155;
+      border-radius: 16px;
+      padding: 18px;
       text-align: center;
       color: white;
       position: relative;
-      transition: all 0.5s ease;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     }
 
-    .title { font-size: 13px; color: #94a3b8; }
-    .dusan { font-size: 40px; font-weight: 800; color: #ffe600; text-shadow: 0 0 10px rgba(255,230,0,0.4); margin: 2px 0; }
+    .title { font-size: 12px; color: #94a3b8; font-weight: 600; letter-spacing: 0.5px; }
+    .dusan { font-size: 42px; font-weight: 900; color: #ffe600; text-shadow: 0 0 12px rgba(255,230,0,0.5); margin: 2px 0; }
     .total { font-size: 13px; color: #cbd5e1; margin-bottom: 12px; }
 
-    /* 현재 진행 미션 전광판 스타일 */
-    .target-banner {
-      background: linear-gradient(135deg, #1e293b, #0f172a);
+    /* 산 등산 전광판 영역 */
+    .mountain-board {
+      position: relative;
+      width: 100%;
+      height: 140px;
+      background: linear-gradient(to bottom, #0f172a 0%, #1e293b 100%);
+      border-radius: 12px;
       border: 1px solid #3b82f6;
-      border-radius: 8px;
-      padding: 10px;
-      box-shadow: inset 0 0 10px rgba(59, 130, 246, 0.2);
+      overflow: hidden;
+      box-shadow: inset 0 0 15px rgba(0,0,0,0.6);
     }
-    .target-header { font-size: 11px; color: #60a5fa; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
-    .target-title { font-size: 15px; font-weight: bold; color: #ffffff; margin-top: 3px; word-break: keep-all; }
 
-    /* 돌파 축하 애니메이션 */
+    /* 산 배경 SVG */
+    .mountain-svg {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 100px;
+    }
+
+    /* 정상 태극기/깃발 */
+    .flag {
+      position: absolute;
+      top: 15px;
+      right: 18px;
+      font-size: 20px;
+      animation: bounce 1.5s infinite alternate;
+    }
+
+    /* 등산 캐릭터 (이미지 또는 아이콘) */
+    .climber {
+      position: absolute;
+      width: 42px;
+      height: 42px;
+      bottom: 10px;
+      left: 10px;
+      transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 10;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+    }
+
+    .climber img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* 미션 정보 오버레이 자막 */
+    .mission-overlay {
+      position: absolute;
+      top: 8px;
+      left: 10px;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(59, 130, 246, 0.5);
+      border-radius: 6px;
+      padding: 4px 8px;
+      text-align: left;
+    }
+    .m-head { font-size: 10px; color: #60a5fa; font-weight: bold; }
+    .m-body { font-size: 12px; color: #ffffff; font-weight: 700; margin-top: 1px; }
+
+    /* 돌파 이펙트 */
     .celebrate {
       animation: pulse 0.8s infinite alternate;
       border-color: #ffe600 !important;
-      box-shadow: 0 0 40px rgba(255, 230, 0, 0.9) !important;
+      box-shadow: 0 0 45px rgba(255, 230, 0, 0.9) !important;
     }
 
     @keyframes pulse {
       0% { transform: scale(1); }
-      100% { transform: scale(1.04); }
+      100% { transform: scale(1.03); }
+    }
+
+    @keyframes bounce {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-4px); }
     }
 
     .banner {
@@ -54,11 +110,12 @@
       width: 100%;
       background: #ffe600;
       color: #000;
-      font-weight: 800;
+      font-weight: 900;
       padding: 8px 0;
       border-radius: 8px;
       font-size: 15px;
       box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      z-index: 20;
     }
   </style>
 </head>
@@ -70,41 +127,54 @@
   <div class="dusan" id="dusanDisplay">0 두산</div>
   <div class="total">총 누적 별풍선 : <span id="totalDisplay">0</span> 개</div>
 
-  <div class="target-banner">
-    <div class="target-header" id="targetHeader">NEXT MISSION</div>
-    <div class="target-title" id="targetTitle">도전할 미션을 등록하세요</div>
+  <!-- 등산 전광판 -->
+  <div class="mountain-board">
+    <div class="mission-overlay">
+      <div class="m-head" id="targetHeader">NEXT GOAL</div>
+      <div class="m-body" id="targetTitle">미션 로딩 중...</div>
+    </div>
+
+    <div class="flag">🚩</div>
+
+    <!-- 산 능선 백그라운드 -->
+    <svg class="mountain-svg" viewBox="0 0 360 100" preserveAspectRatio="none">
+      <path d="M0,100 L0,85 Q90,70 180,50 T360,15 L360,100 Z" fill="#1e3a8a" opacity="0.5"/>
+      <path d="M0,100 L0,90 Q100,75 200,55 T360,25 L360,100 Z" fill="#0d9488" opacity="0.8"/>
+      <path d="M0,100 L0,95 L120,70 L240,45 L340,20 L360,100 Z" fill="#15803d"/>
+    </svg>
+
+    <!-- 캐릭터 (character.png 파일이 없을 시 캐릭터 이모지로 대체 출력) -->
+    <div class="climber" id="climber">
+      <img src="character.png" onerror="this.style.display='none'; this.parentElement.innerText='🧗‍♀️'; this.parentElement.style.fontSize='30px';">
+    </div>
   </div>
 </div>
 
 <script>
   const socket = io();
 
-  // 화려한 팡파레 브라스 멜로디 연주 함수
   function playFanfare() {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) return;
     const ctx = new AudioContext();
 
-    // 트럼펫 팡파레 멜로디 (도-미-솔-도... 웅장한 연주 코드)
     const notes = [
-      { f: 523.25, t: 0.0, d: 0.15 }, // C5
-      { f: 523.25, t: 0.15, d: 0.15 },// C5
-      { f: 523.25, t: 0.30, d: 0.15 },// C5
-      { f: 659.25, t: 0.45, d: 0.40 },// E5
-      { f: 783.99, t: 0.85, d: 0.20 },// G5
-      { f: 1046.50, t: 1.05, d: 0.80 } // C6 (하이라이트)
+      { f: 523.25, t: 0.0, d: 0.15 },
+      { f: 523.25, t: 0.15, d: 0.15 },
+      { f: 523.25, t: 0.30, d: 0.15 },
+      { f: 659.25, t: 0.45, d: 0.40 },
+      { f: 783.99, t: 0.85, d: 0.20 },
+      { f: 1046.50, t: 1.05, d: 0.80 }
     ];
 
     notes.forEach(n => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      
-      osc.type = 'triangle'; // 브라스 관악기 느낌 나는 파형
+      osc.type = 'triangle';
       osc.frequency.setValueAtTime(n.f, ctx.currentTime + n.t);
 
-      // 볼륨 및 울림 볼륨 조정
       gain.gain.setValueAtTime(0, ctx.currentTime + n.t);
-      gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + n.t + 0.05);
+      gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + n.t + 0.05);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + n.t + n.d);
 
       osc.connect(gain);
@@ -121,20 +191,27 @@
     
     const header = document.getElementById('targetHeader');
     const title = document.getElementById('targetTitle');
+    const climber = document.getElementById('climber');
 
     if (data.nextMission) {
-      if (data.dusan >= data.nextMission.target) {
-        header.innerText = "ALL MISSIONS CLEAR";
-        header.style.color = "#10b981";
-        title.innerText = "🏆 모든 미션을 달성했습니다!";
-      } else {
-        header.innerText = `NEXT GOAL: ${data.nextMission.target}두산`;
-        header.style.color = "#60a5fa";
-        title.innerText = data.nextMission.text || "미션 내용 없음";
-      }
+      const target = data.nextMission.target;
+      const current = data.dusan;
+
+      header.innerText = `NEXT GOAL: ${target}두산`;
+      title.innerText = data.nextMission.text || "미션 내용 없음";
+
+      // 달성 비율에 따른 캐릭터 등산 위치 계산 (0%~100%)
+      let progress = Math.min(current / target, 1);
+      
+      // X축: 10px ~ 290px / Y축: 10px ~ 80px (산 경사면 이동)
+      const leftPos = 10 + (progress * 280);
+      const bottomPos = 10 + (progress * 70);
+
+      climber.style.left = `${leftPos}px`;
+      climber.style.bottom = `${bottomPos}px`;
     } else {
       header.innerText = "MISSION";
-      title.innerText = "설정된 미션이 없습니다.";
+      title.innerText = "등록된 미션이 없습니다.";
     }
   });
 
@@ -142,7 +219,7 @@
     const card = document.getElementById('mainCard');
     const banner = document.getElementById('goalBanner');
 
-    banner.innerText = `🎉 ${event.target}두산 달성: ${event.title} 🎉`;
+    banner.innerText = `🎉 ${event.target}두산 등반 성공: ${event.title} 🎉`;
     banner.style.display = 'block';
     card.classList.add('celebrate');
     
@@ -154,7 +231,5 @@
     }, 6000);
   });
 </script>
-</body>
-</html>
 </body>
 </html>
